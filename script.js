@@ -1,20 +1,39 @@
-function onScanSuccess(decodedText, decodedResult) {
-    document.getElementById("result").innerText = "Scanned: " + decodedText;
+const codeReader = new ZXing.BrowserQRCodeReader();
+const videoEl = document.getElementById("video");
+const resultEl = document.getElementById("result");
+const openLinkBtn = document.getElementById("open-link");
 
-    // OPTIONAL: auto-open links
-    if (decodedText.startsWith("http://") || decodedText.startsWith("https://")) {
-        window.open(decodedText, "_blank");
-    }
-}
+let lastScanned = null;
 
-function onScanError(errorMessage) {
-    // You can ignore scan errors
-}
+codeReader.getVideoInputDevices().then(videoInputDevices => {
+    const deviceId = videoInputDevices.length > 1
+        ? videoInputDevices[1].deviceId
+        : videoInputDevices[0]?.deviceId;
 
-let html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    { fps: 10, qrbox: 250 },
-    false
-);
+    codeReader.decodeFromVideoDevice(deviceId, videoEl, (result, err) => {
+        if (result) {
+            const text = result.getText();
 
-html5QrcodeScanner.render(onScanSuccess, onScanError);
+            if (text === lastScanned) return;
+            lastScanned = text;
+
+            resultEl.innerText = text;
+            resultEl.classList.add("found");
+
+            if (text.startsWith("http://") || text.startsWith("https://")) {
+                openLinkBtn.hidden = false;
+                openLinkBtn.onclick = () => window.open(text, "_blank");
+            } else {
+                openLinkBtn.hidden = true;
+            }
+
+            setTimeout(() => {
+                lastScanned = null;
+                resultEl.classList.remove("found");
+            }, 5000);
+        }
+    });
+}).catch(err => {
+    resultEl.innerText = "Camera error: " + err.message;
+    resultEl.style.color = "#ff6b6b";
+});
